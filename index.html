@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Ultimate Windows 95 Simulation – Enhanced Apps</title>
+  <style>
+    /* --- Base & Reset --- */
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: "MS Sans Serif", Tahoma, sans-serif;
+      user-select: none;
+      background: #000;
+    }
+    /* --- Loading Screen --- */
+    #loading-screen {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: #000; color: #0f0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 3000;
+    }
+    #loading-text { font-size: 18px; margin-bottom: 20px; }
+    #progress-container {
+      width: 300px; height: 20px;
+      border: 2px inset #0f0; background: #000;
+    }
+    #progress-bar {
+      height: 100%; width: 0%;
+      background: #0f0; transition: width 0.2s;
+    }
+    /* --- Desktop --- */
+    #desktop {
+      position: relative; width: 100%; height: 100%;
+      background: linear-gradient(to bottom, #0080c0, #004080);
+      display: none;
+    }
+    /* --- Desktop Icons --- */
+    #desktop-icons {
+      position: absolute; top: 10px; left: 10px;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+    .desktop-icon {
+      width: 48px; text-align: center;
+      color: #fff; font-size: 12px; cursor: default;
+    }
+    .desktop-icon .icon { width: 32px; height: 32px; margin: 0 auto; }
+    .desktop-icon .icon-label { margin-top: 2px; }
+    /* --- Window (Draggable Applications) --- */
+    .window {
+      position: absolute; width: 320px; height: 240px;
+      background: #c0c0c0; border: 2px solid #fff;
+      box-shadow: 2px 2px 0 #808080;
+      overflow: hidden;
+      transition: top 0.2s, left 0.2s, width 0.2s, height 0.2s;
+    }
+    .hidden { display: none; }
+    .window-titlebar {
+      background: linear-gradient(to right, #000080, #0000a0);
+      color: #fff; padding: 2px 4px; font-size: 12px;
+      display: flex; justify-content: space-between;
+      align-items: center; cursor: move;
+    }
+    .window-controls span {
+      margin-left: 5px; padding: 0 4px;
+      background: #c0c0c0; border: 1px solid #fff;
+      transition: background 0.1s;
+    }
+    .window-controls span:hover { background: #808080; color: #fff; }
+    .window-content {
+      padding: 4px; font-size: 12px;
+      overflow: auto; background: #fff;
+      height: calc(100% - 20px);
+    }
+    /* --- Taskbar --- */
+    #taskbar {
+      background: linear-gradient(to right, #000080, #0000a0);
+      color: #fff; height: 40px;
+      display: flex; align-items: center;
+      padding: 0 4px; position: fixed;
+      bottom: 0; left: 0; right: 0; z-index: 2000;
+    }
+    #start-btn {
+      background: #c0c0c0; border: 2px outset #fff;
+      font-size: 12px; padding: 2px 8px; cursor: pointer;
+    }
+    #taskbar-buttons {
+      margin-left: 10px; display: flex; gap: 2px; flex-grow: 1;
+    }
+    .taskbar-btn {
+      background: #c0c0c0; border: 2px outset #fff;
+      font-size: 12px; cursor: pointer; padding: 2px 8px;
+    }
+    #clock { min-width: 80px; text-align: right; font-size: 12px; }
+    /* --- Start Menu --- */
+    #start-menu {
+      position: fixed; bottom: 40px; left: 0; width: 220px;
+      background: #c0c0c0; border: 2px outset #fff;
+      box-shadow: 2px 2px 0 #808080; z-index: 2500;
+    }
+    #start-menu.hidden { display: none; }
+    #start-menu-header {
+      display: flex; align-items: center; padding: 4px;
+      background: #000080; color: #fff; font-size: 12px;
+    }
+    #windows-logo { margin-right: 4px; }
+    .menu-item {
+      padding: 4px 8px; cursor: pointer;
+      font-size: 12px; position: relative;
+    }
+    .menu-item:hover { background: #000080; color: #fff; }
+    .menu-separator { border-top: 1px solid #000; margin: 4px 0; }
+    .submenu {
+      position: absolute; top: 0; left: 100%;
+      background: #c0c0c0; border: 2px outset #fff;
+      min-width: 150px; z-index: 3000;
+    }
+    .submenu.hidden { display: none; }
+    .submenu-trigger { position: relative; }
+    /* --- Run Dialog --- */
+    #run-dialog {
+      position: fixed; width: 300px;
+      border: 2px outset #fff; background: #c0c0c0;
+      z-index: 3500; padding: 10px;
+      left: 50%; top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 12px;
+    }
+    #run-dialog.hidden { display: none; }
+    /* --- File Explorer Styles (My Computer) --- */
+    #file-explorer-container {
+      width: 100%; height: 100%;
+      box-sizing: border-box; padding: 5px; overflow: auto;
+    }
+    #file-explorer-toolbar {
+      margin-bottom: 5px;
+    }
+    #file-explorer-toolbar button {
+      font-size: 12px; margin-right: 5px; padding: 2px 4px;
+    }
+    #breadcrumb { margin-bottom: 5px; font-weight: bold; font-size: 12px; }
+    #file-list {
+      list-style: none; padding: 0; margin: 0; font-size: 12px;
+    }
+    #file-list li {
+      padding: 3px 5px; cursor: pointer;
+      display: flex; align-items: center;
+    }
+    #file-list li:hover { background: #ddd; }
+    #file-list li.selected-item { background: #aaa; }
+    .file-icon { width: 16px; height: 16px; margin-right: 5px; }
+    /* --- Paint Application Styles --- */
+    #paint-toolbar {
+      margin-bottom: 5px;
+    }
+    #paint-toolbar button, #paint-toolbar input {
+      font-size: 12px;
+      margin-right: 5px;
+      padding: 2px 4px;
+    }
+    /* --- Control Panel Styles --- */
+    #control-panel-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 10px;
+      font-size: 12px;
+    }
+    .cp-item {
+      text-align: center;
+      cursor: pointer;
+      border: 1px solid #000;
+      padding: 5px;
+      background: #fff;
+    }
+    .cp-item svg { width: 32px; height: 32px; }
+    /* Modal for Control Panel Details */
+    #cp-modal {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 300px; background: #c0c0c0;
+      border: 2px outset #fff; z-index: 3600;
+      padding: 10px; font-size: 12px;
+      display: none;
+    }
+    #cp-modal-close {
+      float: right; cursor: pointer;
+      background: #c0c0c0; border: 1px solid #fff;
+      padding: 2px 4px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Loading Screen -->
+  <div id="loading-screen">
+    <div id="loading-text">Starting Windows 95...</div>
+    <div id="progress-container">
+      <div id="progress-bar"></div>
+    </div>
+  </div>
+
+  <!-- Desktop -->
+  <div id="desktop">
+    <!-- Desktop Icons -->
+    <div id="desktop-icons">
+      <div class="desktop-icon" ondblclick="openWindow('myComputer')">
+        <div class="icon"><!-- My Computer Icon injected below --></div>
+        <div class="icon-label">My Computer</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('notepad')">
+        <div class="icon"><!-- Notepad Icon injected below --></div>
+        <div class="icon-label">Notepad</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('calculator')">
+        <div class="icon"><!-- Calculator Icon injected below --></div>
+        <div class="icon-label">Calculator</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('paint')">
+        <div class="icon"><!-- Paint Icon injected below --></div>
+        <div class="icon-label">Paint</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('commandPrompt')">
+        <div class="icon"><!-- Command Prompt Icon injected below --></div>
+        <div class="icon-label">Command Prompt</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('controlPanel')">
+        <div class="icon"><!-- Control Panel Icon injected below --></div>
+        <div class="icon-label">Control Panel</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('recycleBin')">
+        <div class="icon"><!-- Recycle Bin Icon injected below --></div>
+        <div class="icon-label">Recycle Bin</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('internetExplorer')">
+        <div class="icon"><!-- Internet Explorer Icon injected below --></div>
+        <div class="icon-label">Internet Explorer</div>
+      </div>
+      <div class="desktop-icon" ondblclick="openWindow('solitaire')">
+        <div class="icon"><!-- Solitaire Icon injected below --></div>
+        <div class="icon-label">Solitaire</div>
+      </div>
+    </div>
+
+    <!-- My Computer Window – File Explorer -->
+    <div class="window" id="myComputer" style="top: 50px; left: 50px;">
+      <div class="window-titlebar" onmousedown="bringToFront(this.parentElement)">
+        <span>My Computer</span>
+        <div class="window-controls">
+          <span onclick="minimizeWindow('myComputer'); event.stopPropagation();">_</span>
+          <span onclick="maximizeWindow('myComputer'); event.stopPropagation();">[ ]</span>
+          <span onclick="closeWindow('myComputer'); event.stopPropagation();">X</span>
+        </div>
+      </div>
+      <div class="window-content">
+        <div id="file-explorer-container"></div>
+      </div>
+    </div>
+
+    <!-- Notepad Window – Opens text files -->
+    <div class="window hidden" id="notepad" style="top: 100px; left: 150px;">
+      <div class="window-titlebar" onmousedown="bringToFront(this.parentElement)">
+        <span>Notepad</span>
+        <div class="window-controls">
+          <span onclick="minimizeWindow('notepad'); event.stopPropagation();">_</span>
+          <span onclick="maximizeWindow('notepad'); event.stopPropagation();">[ ]</span>
+          <span onclick="closeWindow('notepad'); event.stopPropagation();">X</span>
+        </div>
+      </div>
+      <div class="window-content">
+        <textarea id="notepad-text" style="width:100%; height:100%; resize:none; border:none; outline:none;" placeholder="Type your text here..."></textarea>
+      </div>
+    </div>
+
+    <!-- Paint Window – Enhanced with toolbar -->
+    <div class="window hidden" id="paint" style="top: 150px; left: 250px;">
+      <div class="window-titlebar" onmousedown="bringToFront(this.parentElement)">
+        <span>Paint</span>
+        <div class="window-controls">
+          <span onclick="minimizeWindow('paint'); event.stopPropagation();">_</span>
+          <span onclick="maximizeWindow('paint'); event.stopPropagation();">[ ]</span>
+          <span onclick="closeWindow('paint'); event.stopPropagation();">X</span>
+        </div>
+      </div>
+      <div class="window-content" style="padding: 5px;">
+        <div id="paint-toolbar">
+          <button onclick="clearCanvas()">Clear</button>
+          <label>Color: <input type="color" id="paint-color" value="#000000"></label>
+          <label>Size: <input type="range" id="paint-size" min="1" max="10" value="2"></label>
+        </div>
+        <canvas id="paint-canvas" width="300" height="200" style="border:1px solid #000;"></canvas>
+      </div>
+    </div>
+
+    <!-- Command Prompt Window – Enhanced with additional commands -->
+    <div class="window hidden" id="commandPrompt" style="top: 80px; left: 300px;">
+      <div class="window-titlebar" onmousedown="bringToFront(this.parentElement)">
+        <span>Command Prompt</span>
+        <div class="window-controls">
+          <span onclick="minimizeWindow('commandPrompt'); event.stopPropagation();">_</span>
+          <span onclick="maximizeWindow('commandPrompt'); event.stopPropagation();">[ ]</span>
+          <span onclick="closeWindow('commandPrompt'); event.stopPropagation();">X</span>
+        </div>
+      </div>
+      <div class="window-content" style="display: flex; flex-direction: column; height: 100%;">
+        <div id="cmd-output" style="background:#000; color:#0f0; font-family:monospace; padding:4px; height:80%; overflow-y:auto; white-space:pre-wrap;">Microsoft Windows [Version 4.00.950]</div>
+        <input id="cmd-input" type="text" placeholder="C:\>" style="width:100%; border:none; outline:none; font-family:monospace; font-size:12px; padding:4px;"
+          onkeydown="if(event.key==='Enter'){ processCommand(this.value); this.value=''; }">
+      </div>
+    </div>
+
+    <!-- Control Panel Window – Enhanced with clickable items -->
+    <div class="window hidden" id="controlPanel" style="top: 120px; left: 350px;">
+      <div class="window-titlebar" onmousedown="bringToFront(this.parentElement)">
+        <span>Control Panel</span>
+        <div class="window-controls">
+          <span onclick="minimizeWindow('controlPanel'); event.stopPropagation();">_</span>
+          <span onclick="maximizeWindow('controlPanel'); event.stopPropagation();">[ ]</span>
+          <span onclick="closeWindow('controlPanel'); event.stopPropagation();">X</span>
+        </div>
+      </div>
+      <div class="window-content">
+        <div id="control-panel-grid">
+          <div class="cp-item" onclick="openControlPanelDetail('Display')">
+            <svg viewBox="0 0 32 32"><rect x="6" y="8" width="20" height="16" fill="#fff" stroke="#000" stroke-width="1"/></svg>
+            <div>Display</div>
+          </div>
+          <div class="cp-item" onclick="openControlPanelDetail('Sound')">
+            <svg viewBox="0 0 32 32"><polygon points="8,12 16,4 16,28 8,20" fill="#fff" stroke="#000" stroke-width="1"/><circle cx="20" cy="16" r="4" fill="#fff" stroke="#000" stroke-width="1"/></svg>
+            <div>Sound</div>
+          </div>
+          <div class="cp-item" onclick="openControlPanelDetail('Network')">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10" fill="#fff" stroke="#000" stroke-width="1"/><line x1="16" y1="6" x2="16" y2="26" stroke="#000" stroke-width="1"/></svg>
+            <div>Network</div>
+          </div>
+          <div class="cp-item" onclick="openControlPanelDetail('System')">
+            <svg viewBox="0 0 32 32"><rect x="8" y="8" width="16" height="16" fill="#fff" stroke="#000" stroke-width="1"/></svg>
+            <div>System</div>
+          </div>
+          <div class="cp-item" onclick="openControlPanelDetail('Users')">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="12" r="4" fill="#fff" stroke="#000" stroke-width="1"/><rect x="12" y="18" width="8" height="8" fill="#fff" stroke="#000" stroke-width="1"/></svg>
+            <div>Users</div>
+          </div>
+          <div class="cp-item" onclick="openControlPanelDetail('Date/Time')">
+            <svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="10" fill="#fff" stroke="#000" stroke-width="1"/><line x1="16" y1="16" x2="16" y2="10" stroke="#000" stroke-width="1"/><line x1="16" y1="16" x2="22" y2="16" stroke="#000" stroke-width="1"/></svg>
+            <div>Date/Time</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- (Other windows such as Recycle Bin, Internet Explorer, Solitaire remain as in previous versions.) -->
+
+    <!-- Desktop Right-Click Context Menu -->
+    <div id="context-menu" class="hidden">
+      <div class="context-menu-item" onclick="alert('View options not implemented'); hideContextMenu();">View</div>
+      <div class="context-menu-item" onclick="alert('Refreshing...'); hideContextMenu();">Refresh</div>
+      <div class="context-menu-item" onclick="alert('Personalize is not available'); hideContextMenu();">Personalize</div>
+    </div>
+  </div>
+
+  <!-- Taskbar -->
+  <div id="taskbar">
+    <button id="start-btn" onclick="toggleStartMenu()">Start</button>
+    <div id="taskbar-buttons"></div>
+    <div id="clock"></div>
+  </div>
+
+  <!-- Start Menu -->
+  <div id="start-menu" class="hidden">
+    <div id="start-menu-header">
+      <div id="windows-logo">
+        <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="0" width="7" height="7" fill="#f00"/>
+          <rect x="9" y="0" width="7" height="7" fill="#0f0"/>
+          <rect x="0" y="9" width="7" height="7" fill="#00f"/>
+          <rect x="9" y="9" width="7" height="7" fill="#ff0"/>
+        </svg>
+      </div>
+      <div id="start-menu-title">Programs</div>
+    </div>
+    <div class="menu-item submenu-trigger">Programs &raquo;
+      <div class="submenu hidden">
+        <div class="menu-item" onclick="openWindow('myComputer')">My Computer</div>
+        <div class="menu-item" onclick="openWindow('notepad')">Notepad</div>
+        <div class="menu-item" onclick="openWindow('calculator')">Calculator</div>
+        <div class="menu-item" onclick="openWindow('paint')">Paint</div>
+        <div class="menu-item" onclick="openWindow('commandPrompt')">Command Prompt</div>
+        <div class="menu-item" onclick="openWindow('controlPanel')">Control Panel</div>
+        <div class="menu-item" onclick="openWindow('recycleBin')">Recycle Bin</div>
+        <div class="menu-item" onclick="openWindow('internetExplorer')">Internet Explorer</div>
+        <div class="menu-item" onclick="openWindow('solitaire')">Solitaire</div>
+      </div>
+    </div>
+    <div class="menu-separator"></div>
+    <div class="menu-item" onclick="runDialog()">Run...</div>
+    <div class="menu-item" onclick="searchDialog()">Search...</div>
+    <div class="menu-item" onclick="helpDialog()">Help</div>
+    <div class="menu-item" onclick="aboutDialog()">About Windows 95</div>
+    <div class="menu-separator"></div>
+    <div class="menu-item" onclick="shutdown()">Shut Down</div>
+  </div>
+
+  <!-- Run Dialog -->
+  <div id="run-dialog" class="hidden">
+    <div style="font-weight: bold; margin-bottom: 10px;">Run...</div>
+    <input type="text" id="run-input" style="width: 100%;" placeholder="Type a program name">
+    <div style="text-align: right; margin-top: 10px;">
+      <button onclick="executeRun()">OK</button>
+      <button onclick="hideRunDialog()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Control Panel Modal Dialog -->
+  <div id="cp-modal">
+    <span id="cp-modal-close" onclick="closeCPModal()">X</span>
+    <div id="cp-modal-content"></div>
+  </div>
+
+  <!-- ----------------- Main Script ----------------- -->
+  <script>
+    /* ----------------- General Windows 95 Simulation Functions ----------------- */
+    function playStartupSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioCtx.createOscillator();
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime);
+        oscillator.connect(audioCtx.destination);
+        oscillator.start();
+        oscillator.stop(audioCtx.currentTime + 0.2);
+      } catch (e) { console.log("Web Audio API not supported."); }
+    }
+    window.onload = function() { playStartupSound(); simulateLoading(); };
+    function simulateLoading() {
+      let progress = 0;
+      const progressBar = document.getElementById("progress-bar");
+      const interval = setInterval(function() {
+        progress += 1;
+        progressBar.style.width = progress + "%";
+        if (progress >= 100) {
+          clearInterval(interval);
+          document.getElementById("loading-screen").style.display = "none";
+          document.getElementById("desktop").style.display = "block";
+          if (!document.getElementById("myComputer").classList.contains("hidden")) {
+            renderFileExplorer();
+          }
+        }
+      }, 30);
+    }
+    function dragElement(elmnt) {
+      let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+      const titleBar = elmnt.querySelector(".window-titlebar");
+      if (titleBar) { titleBar.onmousedown = dragMouseDown; }
+      else { elmnt.onmousedown = dragMouseDown; }
+      function dragMouseDown(e) {
+        e = e || window.event; e.preventDefault();
+        bringToFront(elmnt);
+        pos3 = e.clientX; pos4 = e.clientY;
+        document.onmouseup = closeDragElement;
+        document.onmousemove = elementDrag;
+      }
+      function elementDrag(e) {
+        e = e || window.event; e.preventDefault();
+        pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY;
+        pos3 = e.clientX; pos4 = e.clientY;
+        elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+        elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+      }
+      function closeDragElement() { document.onmouseup = null; document.onmousemove = null; }
+    }
+    document.querySelectorAll(".window").forEach(win => dragElement(win));
+    function bringToFront(win) { win.style.zIndex = Date.now(); }
+    function addTaskbarButton(id, title) {
+      if (document.getElementById("tb-" + id)) return;
+      const tb = document.getElementById("taskbar-buttons");
+      const btn = document.createElement("button");
+      btn.innerText = title; btn.id = "tb-" + id;
+      btn.className = "taskbar-btn";
+      btn.onclick = function() {
+        const win = document.getElementById(id);
+        if (win.classList.contains("hidden")) { win.classList.remove("hidden"); bringToFront(win); }
+        else { bringToFront(win); }
+      };
+      tb.appendChild(btn);
+    }
+    function removeTaskbarButton(id) {
+      const btn = document.getElementById("tb-" + id);
+      if (btn) btn.remove();
+    }
+    function openWindow(id) {
+      const win = document.getElementById(id);
+      win.classList.remove("hidden"); bringToFront(win);
+      const title = win.querySelector(".window-titlebar span").innerText;
+      addTaskbarButton(id, title);
+      hideStartMenu();
+      if (id === "myComputer") renderFileExplorer();
+      if (id === "solitaire") initSolitaire();
+    }
+    function closeWindow(id) { document.getElementById(id).classList.add("hidden"); removeTaskbarButton(id); }
+    function minimizeWindow(id) { document.getElementById(id).classList.add("hidden"); }
+    function maximizeWindow(id) {
+      const win = document.getElementById(id);
+      if (windowStates[id] && windowStates[id].maximized) {
+        win.style.top = windowStates[id].top;
+        win.style.left = windowStates[id].left;
+        win.style.width = windowStates[id].width;
+        win.style.height = windowStates[id].height;
+        windowStates[id].maximized = false;
+      } else {
+        windowStates[id] = {
+          top: win.style.top,
+          left: win.style.left,
+          width: win.style.width,
+          height: win.style.height,
+          maximized: true
+        };
+        win.style.top = "0px"; win.style.left = "0px";
+        const taskbarHeight = document.getElementById("taskbar").offsetHeight;
+        win.style.width = document.getElementById("desktop").offsetWidth + "px";
+        win.style.height = (document.getElementById("desktop").offsetHeight - taskbarHeight) + "px";
+      }
+      bringToFront(win);
+    }
+    const windowStates = {};
+    function toggleStartMenu() {
+      const menu = document.getElementById("start-menu");
+      menu.classList.toggle("hidden");
+    }
+    function hideStartMenu() { document.getElementById("start-menu").classList.add("hidden"); }
+    document.addEventListener("click", function(e) {
+      const startMenu = document.getElementById("start-menu");
+      const startBtn = document.getElementById("start-btn");
+      if (!startMenu.contains(e.target) && e.target !== startBtn) { startMenu.classList.add("hidden"); }
+    });
+    document.querySelectorAll('.submenu-trigger').forEach(function(item) {
+      item.addEventListener('mouseenter', function(e) { let submenu = this.querySelector('.submenu'); if (submenu) submenu.classList.remove('hidden'); });
+      item.addEventListener('mouseleave', function(e) { let submenu = this.querySelector('.submenu'); if (submenu) submenu.classList.add('hidden'); });
+    });
+    function runDialog() { hideStartMenu(); document.getElementById("run-dialog").classList.remove("hidden"); document.getElementById("run-input").focus(); }
+    function hideRunDialog() { document.getElementById("run-dialog").classList.add("hidden"); }
+    function executeRun() {
+      const cmd = document.getElementById("run-input").value.toLowerCase().trim();
+      hideRunDialog();
+      if (cmd === "notepad") openWindow("notepad");
+      else if (cmd === "calc" || cmd === "calculator") openWindow("calculator");
+      else if (cmd === "paint") openWindow("paint");
+      else if (cmd === "cmd" || cmd === "command prompt") openWindow("commandPrompt");
+      else if (cmd === "solitaire") openWindow("solitaire");
+      else { alert("The program \"" + cmd + "\" was not found."); }
+    }
+    function searchDialog() { alert("Search functionality is not implemented yet."); }
+    function helpDialog() { alert("Help functionality is not implemented yet."); }
+    function aboutDialog() { alert("Windows 95\n(c) Microsoft 1995"); }
+    function shutdown() { if (confirm("Are you sure you want to shut down?")) { location.reload(); } }
+    let calcExpression = "";
+    function calcInput(val) { if (calcExpression === "" && val !== ".") { calcExpression = val; } else { calcExpression += val; } updateCalcDisplay(); }
+    function updateCalcDisplay() { document.getElementById("calc-display").innerText = calcExpression || "0"; }
+    function calculateResult() { try { calcExpression = eval(calcExpression).toString(); } catch (e) { calcExpression = "Error"; } updateCalcDisplay(); }
+    function clearCalc() { calcExpression = ""; updateCalcDisplay(); }
+    const paintCanvas = document.getElementById("paint-canvas");
+    if (paintCanvas) {
+      const ctx = paintCanvas.getContext("2d");
+      let painting = false;
+      function startPosition(e) { painting = true; draw(e); }
+      function finishedPosition() { painting = false; ctx.beginPath(); }
+      function draw(e) {
+        if (!painting) return;
+        const rect = paintCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        ctx.lineWidth = document.getElementById("paint-size").value;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = document.getElementById("paint-color").value;
+        ctx.lineTo(x, y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x, y);
+      }
+      paintCanvas.addEventListener("mousedown", startPosition);
+      paintCanvas.addEventListener("mouseup", finishedPosition);
+      paintCanvas.addEventListener("mousemove", draw);
+    }
+    function clearCanvas() {
+      const canvas = document.getElementById("paint-canvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+    function processCommand(cmd) {
+      const output = document.getElementById("cmd-output");
+      let input = cmd.trim().toLowerCase();
+      if (input === "dir") {
+        output.innerText += "\n Volume in drive C is OS\n Directory of C:\\\n\n  Program Files\n  Windows\n  Users\n\n";
+      } else if (input === "cls") {
+        output.innerText = "Microsoft Windows [Version 4.00.950]";
+      } else if (input.startsWith("echo")) {
+        output.innerText += "\n" + cmd.substring(5);
+      } else if (input === "time") {
+        output.innerText += "\n " + new Date().toLocaleTimeString();
+      } else if (input === "help") {
+        output.innerText += "\n Available commands: dir, cls, echo, time, help";
+      } else {
+        output.innerText += "\n'" + cmd + "' is not recognized as an internal or external command.";
+      }
+      output.innerText += "\nC:\\>";
+      output.scrollTop = output.scrollHeight;
+    }
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours(), minutes = now.getMinutes(), seconds = now.getSeconds();
+      hours = hours < 10 ? "0" + hours : hours;
+      minutes = minutes < 10 ? "0" + minutes : minutes;
+      seconds = seconds < 10 ? "0" + seconds : seconds;
+      document.getElementById("clock").innerText = hours + ":" + minutes + ":" + seconds;
+    }
+    setInterval(updateClock, 1000); updateClock();
+    document.getElementById("desktop").addEventListener("contextmenu", function(e) {
+      e.preventDefault();
+      const menu = document.getElementById("context-menu");
+      menu.style.top = e.clientY + "px"; menu.style.left = e.clientX + "px";
+      menu.classList.remove("hidden");
+    });
+    document.addEventListener("click", function(e) { if (e.button !== 2) { hideContextMenu(); } });
+    function hideContextMenu() { document.getElementById("context-menu").classList.add("hidden"); }
+
+    /* ---------------- File Explorer (My Computer) Functions ---------------- */
+    const fileSystem = {
+      "C:": {
+        "Program Files": {
+          "Notepad.exe": { type: "exe", content: "Notepad Application (simulated)" },
+          "Calculator.exe": { type: "exe", content: "Calculator Application (simulated)" }
+        },
+        "Windows": {
+          "system.ini": { type: "txt", content: "System configuration data..." }
+        },
+        "Users": {
+          "Public": {
+            "readme.txt": { type: "txt", content: "This is a sample readme file from Public." }
+          }
+        }
+      }
+    };
+    let currentPath = [];
+    let selectedFileName = null;
+    function getCurrentFolder() {
+      let folder = fileSystem;
+      for (let p of currentPath) { folder = folder[p]; }
+      return folder;
+    }
+    function renderFileExplorer() {
+      selectedFileName = null;
+      const container = document.getElementById("file-explorer-container");
+      container.innerHTML = "";
+      const breadcrumb = document.createElement("div");
+      breadcrumb.id = "breadcrumb";
+      let pathDisplay = "My Computer";
+      if (currentPath.length > 0) { pathDisplay += " > " + currentPath.join(" > "); }
+      breadcrumb.innerText = pathDisplay;
+      container.appendChild(breadcrumb);
+      if (currentPath.length > 0) {
+        const backBtn = document.createElement("button");
+        backBtn.innerText = "Back";
+        backBtn.style.marginBottom = "5px";
+        backBtn.onclick = function() { currentPath.pop(); renderFileExplorer(); };
+        container.appendChild(backBtn);
+      }
+      const toolbar = document.createElement("div");
+      toolbar.id = "file-explorer-toolbar";
+      toolbar.innerHTML = '<button onclick="newFolder()">New Folder</button> ' +
+                          '<button onclick="newTextFile()">New Text File</button> ' +
+                          '<button onclick="deleteItem()">Delete</button> ' +
+                          '<button onclick="renameItem()">Rename</button>';
+      container.appendChild(toolbar);
+      let currentFolder;
+      if (currentPath.length === 0) { currentFolder = fileSystem; }
+      else { currentFolder = getCurrentFolder(); }
+      const fileList = document.createElement("ul");
+      fileList.id = "file-list";
+      for (let name in currentFolder) {
+        const item = currentFolder[name];
+        const li = document.createElement("li");
+        li.onclick = function(e) {
+          const siblings = li.parentNode.children;
+          for (let sib of siblings) { sib.classList.remove("selected-item"); }
+          li.classList.add("selected-item");
+          selectedFileName = name;
+          e.stopPropagation();
+        };
+        li.ondblclick = function() {
+          if (typeof item === "object" && !item.type) {
+            currentPath.push(name);
+            renderFileExplorer();
+          } else if (item.type === "txt") {
+            openNotepadWithContent(name, item.content);
+          } else if (item.type === "exe") {
+            alert("Launching " + name + "...\n(This is a simulation.)");
+          }
+        };
+        const icon = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        icon.setAttribute("width", "16");
+        icon.setAttribute("height", "16");
+        icon.classList.add("file-icon");
+        if (typeof item === "object" && !item.type) {
+          icon.innerHTML = '<rect x="1" y="4" width="14" height="10" fill="#ffcc00" stroke="#000" stroke-width="0.5"/>' +
+                           '<polyline points="1,4 1,2 7,2 9,4" fill="none" stroke="#000" stroke-width="1"/>';
+        } else if (item.type === "txt") {
+          icon.innerHTML = '<rect x="1" y="1" width="14" height="14" fill="#fff" stroke="#000" stroke-width="0.5"/>' +
+                           '<line x1="3" y1="4" x2="13" y2="4" stroke="#000" stroke-width="1"/>';
+        } else if (item.type === "exe") {
+          icon.innerHTML = '<rect x="1" y="1" width="14" height="14" fill="#c0c0c0" stroke="#000" stroke-width="0.5"/>';
+        }
+        li.appendChild(icon);
+        const span = document.createElement("span");
+        span.innerText = name;
+        li.appendChild(span);
+        fileList.appendChild(li);
+      }
+      container.appendChild(fileList);
+    }
+    function newFolder() {
+      let name = prompt("Enter folder name:", "New Folder");
+      if (name) {
+        let current = getCurrentFolder();
+        if (current.hasOwnProperty(name)) { alert("Item already exists!"); }
+        else { current[name] = {}; renderFileExplorer(); }
+      }
+    }
+    function newTextFile() {
+      let name = prompt("Enter file name:", "New Text File.txt");
+      if (name) {
+        let current = getCurrentFolder();
+        if (current.hasOwnProperty(name)) { alert("Item already exists!"); }
+        else { current[name] = { type: "txt", content: "" }; renderFileExplorer(); }
+      }
+    }
+    function deleteItem() {
+      if (!selectedFileName) { alert("No item selected!"); return; }
+      if (confirm("Delete " + selectedFileName + "?")) {
+        let current = getCurrentFolder();
+        delete current[selectedFileName];
+        selectedFileName = null;
+        renderFileExplorer();
+      }
+    }
+    function renameItem() {
+      if (!selectedFileName) { alert("No item selected!"); return; }
+      let newName = prompt("Enter new name for " + selectedFileName + ":", selectedFileName);
+      if (newName && newName !== selectedFileName) {
+        let current = getCurrentFolder();
+        if (current.hasOwnProperty(newName)) { alert("Item with that name already exists!"); }
+        else {
+          current[newName] = current[selectedFileName];
+          delete current[selectedFileName];
+          selectedFileName = newName;
+          renderFileExplorer();
+        }
+      }
+    }
+    function openNotepadWithContent(fileName, content) {
+      openWindow("notepad");
+      const notepad = document.getElementById("notepad-text");
+      notepad.value = "----- " + fileName + " -----\n" + content;
+    }
+    /* ---------------- Control Panel Functions ---------------- */
+    function openControlPanelDetail(item) {
+      let content = "";
+      switch(item) {
+        case "Display":
+          content = "Display Settings:\nYour screen resolution is " + screen.width + " x " + screen.height + ".";
+          break;
+        case "Sound":
+          content = "Sound Settings:\nSound settings are not available in this simulation.";
+          break;
+        case "Network":
+          content = "Network Settings:\nNo network is connected.";
+          break;
+        case "System":
+          content = "System Properties:\nOS: Windows 95 (simulated)\nCPU: 33MHz\nRAM: 4MB";
+          break;
+        case "Users":
+          content = "User Accounts:\nThis simulation supports a single user.";
+          break;
+        case "Date/Time":
+          content = "Current Date and Time:\n" + new Date().toLocaleString();
+          break;
+        default:
+          content = "No details available.";
+      }
+      document.getElementById("cp-modal-content").innerText = content;
+      document.getElementById("cp-modal").style.display = "block";
+    }
+    function closeCPModal() {
+      document.getElementById("cp-modal").style.display = "none";
+    }
+    /* ----------------- Command Prompt Functions ----------------- */
+    function processCommand(cmd) {
+      const output = document.getElementById("cmd-output");
+      let input = cmd.trim().toLowerCase();
+      if (input === "dir") {
+        output.innerText += "\n Volume in drive C is OS\n Directory of C:\\\n\n  Program Files\n  Windows\n  Users\n\n";
+      } else if (input === "cls") {
+        output.innerText = "Microsoft Windows [Version 4.00.950]";
+      } else if (input.startsWith("echo")) {
+        output.innerText += "\n" + cmd.substring(5);
+      } else if (input === "time") {
+        output.innerText += "\n " + new Date().toLocaleTimeString();
+      } else if (input === "help") {
+        output.innerText += "\n Available commands: dir, cls, echo, time, help";
+      } else {
+        output.innerText += "\n'" + cmd + "' is not recognized as an internal or external command.";
+      }
+      output.innerText += "\nC:\\>";
+      output.scrollTop = output.scrollHeight;
+    }
+    /* ----------------- Clock ----------------- */
+    function updateClock() {
+      const now = new Date();
+      let hours = now.getHours(), minutes = now.getMinutes(), seconds = now.getSeconds();
+      hours = hours < 10 ? "0" + hours : hours;
+      minutes = minutes < 10 ? "0" + minutes : minutes;
+      seconds = seconds < 10 ? "0" + seconds : seconds;
+      document.getElementById("clock").innerText = hours + ":" + minutes + ":" + seconds;
+    }
+    setInterval(updateClock, 1000); updateClock();
+    document.getElementById("desktop").addEventListener("contextmenu", function(e) {
+      e.preventDefault();
+      const menu = document.getElementById("context-menu");
+      menu.style.top = e.clientY + "px"; menu.style.left = e.clientX + "px";
+      menu.classList.remove("hidden");
+    });
+    document.addEventListener("click", function(e) { if (e.button !== 2) { hideContextMenu(); } });
+    function hideContextMenu() { document.getElementById("context-menu").classList.add("hidden"); }
+
+    /* ----------------- Paint Functions ----------------- */
+    // (Toolbar and canvas already set up in HTML)
+    // Canvas drawing code is already active from event listeners above.
+    /* ----------------- End of Main Script ----------------- */
+  </script>
+
+  <!-- ---------------- Inline SVG Icon Injection for Desktop Icons ---------------- -->
+  <script>
+    document.querySelectorAll('.desktop-icon').forEach(function(icon) {
+      const label = icon.querySelector('.icon-label').innerText;
+      let svg = "";
+      if (label === "My Computer") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="6" width="24" height="16" fill="#c0c0c0" stroke="#000" stroke-width="1"/><rect x="10" y="22" width="12" height="4" fill="#c0c0c0" stroke="#000" stroke-width="1"/></svg>';
+      } else if (label === "Notepad") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="6" y="4" width="20" height="24" fill="#fff" stroke="#000" stroke-width="1"/><line x1="8" y1="10" x2="24" y2="10" stroke="#000" stroke-width="1"/><line x1="8" y1="14" x2="24" y2="14" stroke="#000" stroke-width="1"/><line x1="8" y1="18" x2="24" y2="18" stroke="#000" stroke-width="1"/></svg>';
+      } else if (label === "Calculator") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="4" width="24" height="24" fill="#fff" stroke="#000" stroke-width="1"/><rect x="8" y="8" width="16" height="4" fill="#c0c0c0" stroke="#000" stroke-width="1"/><rect x="8" y="14" width="6" height="6" fill="#c0c0c0" stroke="#000" stroke-width="1"/><rect x="18" y="14" width="6" height="6" fill="#c0c0c0" stroke="#000" stroke-width="1"/></svg>';
+      } else if (label === "Paint") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="12" fill="#ffcc00" stroke="#000" stroke-width="1"/><circle cx="12" cy="14" r="2" fill="#000"/><circle cx="20" cy="14" r="2" fill="#000"/></svg>';
+      } else if (label === "Command Prompt") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="24" height="16" fill="#000" stroke="#fff" stroke-width="1"/><text x="8" y="20" font-size="10" fill="#0f0">&gt;</text></svg>';
+      } else if (label === "Control Panel") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="10" fill="#fff" stroke="#000" stroke-width="1"/><path d="M16 6 L16 26 M6 16 L26 16" stroke="#000" stroke-width="1"/></svg>';
+      } else if (label === "Recycle Bin") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="10" y="10" width="12" height="12" fill="#ccc" stroke="#000" stroke-width="1"/><line x1="10" y1="10" x2="22" y2="22" stroke="#000" stroke-width="1"/><line x1="22" y1="10" x2="10" y2="22" stroke="#000" stroke-width="1"/></svg>';
+      } else if (label === "Internet Explorer") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="12" fill="#00aaff" stroke="#fff" stroke-width="1"/><path d="M16 4 A12 12 0 0 1 28 16" stroke="#fff" stroke-width="2" fill="none"/></svg>';
+      } else if (label === "Solitaire") {
+        svg = '<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><rect x="8" y="6" width="16" height="24" fill="#fff" stroke="#000" stroke-width="1"/><text x="16" y="22" font-size="10" text-anchor="middle" fill="#000">A</text></svg>';
+      }
+      icon.querySelector('.icon').innerHTML = svg;
+    });
+  </script>
+</body>
+</html>
